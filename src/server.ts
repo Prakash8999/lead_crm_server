@@ -1,11 +1,16 @@
 import express, { Request, Response, NextFunction } from "express";
+import { env } from "./config/env";
+import { setupSwagger } from "./config/docs/swagger";
 
 const app = express();
-const PORT = process.env["PORT"] ?? 3000;
+const PORT = env.PORT;
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ── API Docs (Swagger UI — auto-generated from Zod schemas) ───────────────────
+setupSwagger(app);
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.get("/", (_req: Request, res: Response) => {
@@ -27,5 +32,7 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 app.listen(PORT, () => {
     console.log(`✅ Server running at http://localhost:${PORT}`);
 });
+
+console.log("envs ", env)
 
 export default app;
