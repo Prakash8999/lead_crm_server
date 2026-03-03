@@ -2,6 +2,7 @@ import { DataTypes, Model, Sequelize } from 'sequelize';
 import { z } from 'zod';
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import sequelize from '../../config/db/db_connection';
+import { PaginationQuerySchema } from '../../shared/schemas/pagination.schema';
 
 extendZodWithOpenApi(z);
 
@@ -18,6 +19,7 @@ export const CompanySchema = z
             example: 'ABC Pvt Ltd',
             description: 'Name of the company',
         }),
+
         contact_email: z.email().openapi({
             example: 'contact@abc.com',
             description: 'Official contact email of the company',
@@ -60,12 +62,44 @@ export const CreateCompanySchema = CompanySchema.omit({
     created_at: true,
     is_active: true,
     updated_at: true,
-}).openapi({ title: 'CreateCompanyInput' });
+}).strict().openapi({ title: 'CreateCompanyInput' });
 
 export const UpdateCompanySchema = CompanySchema.partial().omit({
     id: true,
     created_at: true,
-}).openapi({ title: 'UpdateCompanyInput' });
+}).strict().openapi({ title: 'UpdateCompanyInput' });
+
+// Validates :id route param — must be a numeric string representing a positive integer
+export const CompanyIdParamSchema = z.object({
+    id: z
+        .string()
+        .regex(/^[1-9]\d*$/, 'id must be a positive integer')
+        .transform(Number),
+});
+
+// Validates and whitelists all allowed query params for GET /companies.
+// Extends the shared pagination base with company-specific sort columns and filters.
+// Unknown keys are stripped silently — bad filters are simply ignored.
+const companySortableColumns = [
+    'id', 'name', 'contact_email', 'contact_phone', 'is_active', 'created_at', 'updated_at',
+] as const;
+
+export const CompanyQuerySchema = PaginationQuerySchema.extend({
+    // Lock sort_by to valid company columns only
+    sort_by: z
+        .enum(companySortableColumns)
+        .default('id'),
+
+    // Filterable fields — all optional
+    name: z.string().min(1).max(255).optional(),
+    contact_email: z.email().optional(),
+    contact_phone: z.string().min(5).max(20).optional(),
+    is_active: z
+        .enum(['true', 'false'])
+        .transform((v) => v === 'true')
+        .optional(),
+    // strip: unknown query params are silently dropped — never reach service/DB
+}).strip();
 
 // --------------------
 // 🧩 Types
@@ -73,6 +107,7 @@ export const UpdateCompanySchema = CompanySchema.partial().omit({
 export type CompanyAttributes = z.infer<typeof CompanySchema>;
 export type CompanyCreationAttributes = z.infer<typeof CreateCompanySchema>;
 export type UpdateCompanyAttributes = z.infer<typeof UpdateCompanySchema>;
+export type CompanyQuery = z.infer<typeof CompanyQuerySchema>;
 
 // --------------------
 // 🧩 Sequelize Model

@@ -1,8 +1,16 @@
+import { z } from 'zod';
 import { registry } from '../../config/docs/openapi.registry';
+import {
+    SuccessEnvelope,
+    ErrorEnvelope,
+    ValidationErrorEnvelope,
+} from '../../config/docs/openapi.helpers';
 import {
     CompanySchema,
     CreateCompanySchema,
     UpdateCompanySchema,
+    CompanyIdParamSchema,
+    CompanyQuerySchema,
 } from './companies.model';
 
 // ── Register component schemas ─────────────────────────────────────────────────
@@ -12,57 +20,124 @@ registry.register('Company', CompanySchema);
 registry.register('CreateCompanyInput', CreateCompanySchema);
 registry.register('UpdateCompanyInput', UpdateCompanySchema);
 
-// ── Register API paths ─────────────────────────────────────────────────────────
-// Each registerPath() call auto-generates a full Swagger path entry
-// from the Zod schemas — no YAML or JSDoc needed.
-
+// ── GET /companies ─────────────────────────────────────────────────────────────
 registry.registerPath({
     method: 'get',
     path: '/companies',
     tags: ['Companies'],
     summary: 'List all companies',
-    description: 'Returns a paginated list of all registered companies.',
+    description:
+        'Returns a paginated, sorted, and optionally filtered list of companies. ' +
+        'All query params are validated against `CompanyQuerySchema`. ' +
+        'Unknown query params are silently stripped — they never reach the database.',
+    request: {
+        // CompanyQuerySchema extends PaginationQuerySchema, so every allowed field
+        // (page, limit, sort_order, sort_by, search + company filters) is captured here.
+        query: CompanyQuerySchema,
+    },
     responses: {
         200: {
-            description: 'A list of companies',
+            description: 'Paginated list of companies',
             content: {
                 'application/json': {
-                    schema: {
-                        type: 'array',
-                        items: { $ref: '#/components/schemas/Company' },
-                    },
+                    schema: SuccessEnvelope(z.array(CompanySchema), true).openapi({
+                        example: {
+                            status: 'success',
+                            code: 200,
+                            error: false,
+                            message: 'Companies fetched successfully',
+                            data: [
+                                {
+                                    id: 1,
+                                    name: 'ABC Pvt Ltd',
+                                    contact_email: 'contact@abc.com',
+                                    contact_phone: '+91-9876543210',
+                                    address: 'Mumbai, Maharashtra, India',
+                                    is_active: true,
+                                    created_at: '2025-10-08T09:00:00Z',
+                                    updated_at: '2025-10-08T09:10:00Z',
+                                },
+                            ],
+                            meta: { total: 42, page: 1, limit: 20, totalPages: 3 },
+                        },
+                    }),
+                },
+            },
+        },
+        422: {
+            description: 'Invalid query parameter(s)',
+            content: {
+                'application/json': {
+                    schema: ValidationErrorEnvelope,
                 },
             },
         },
     },
 });
 
+// ── GET /companies/{id} ────────────────────────────────────────────────────────
 registry.registerPath({
     method: 'get',
     path: '/companies/{id}',
     tags: ['Companies'],
     summary: 'Get a company by ID',
+    description: 'Returns a single company record. The `id` param must be a positive integer.',
     request: {
-        params: CompanySchema.pick({ id: true }),
+        params: CompanyIdParamSchema,
     },
     responses: {
         200: {
             description: 'The requested company',
             content: {
                 'application/json': {
-                    schema: { $ref: '#/components/schemas/Company' },
+                    schema: SuccessEnvelope(CompanySchema).openapi({
+                        example: {
+                            status: 'success',
+                            code: 200,
+                            error: false,
+                            message: 'Company fetched successfully',
+                            data: {
+                                id: 1,
+                                name: 'ABC Pvt Ltd',
+                                contact_email: 'contact@abc.com',
+                                contact_phone: '+91-9876543210',
+                                address: 'Mumbai, Maharashtra, India',
+                                is_active: true,
+                                created_at: '2025-10-08T09:00:00Z',
+                                updated_at: '2025-10-08T09:10:00Z',
+                            },
+                        },
+                    }),
                 },
             },
         },
-        404: { description: 'Company not found' },
+        404: {
+            description: 'Company not found',
+            content: {
+                'application/json': {
+                    schema: ErrorEnvelope('Company not found', 404),
+                },
+            },
+        },
+        422: {
+            description: 'Invalid `id` param (must be a positive integer)',
+            content: {
+                'application/json': {
+                    schema: ValidationErrorEnvelope,
+                },
+            },
+        },
     },
 });
 
+// ── POST /companies ────────────────────────────────────────────────────────────
 registry.registerPath({
     method: 'post',
     path: '/companies',
     tags: ['Companies'],
     summary: 'Create a new company',
+    description:
+        'Creates a new company record. Unknown fields in the request body are rejected (strict mode).',
     request: {
         body: {
             required: true,
@@ -78,21 +153,50 @@ registry.registerPath({
             description: 'Company created successfully',
             content: {
                 'application/json': {
-                    schema: { $ref: '#/components/schemas/Company' },
+                    schema: SuccessEnvelope(CompanySchema).openapi({
+                        example: {
+                            status: 'success',
+                            code: 201,
+                            error: false,
+                            message: 'Company created successfully',
+                            data: {
+                                id: 5,
+                                name: 'ABC Pvt Ltd',
+                                contact_email: 'contact@abc.com',
+                                contact_phone: '+91-9876543210',
+                                address: 'Mumbai, Maharashtra, India',
+                                is_active: true,
+                                created_at: '2025-10-08T09:00:00Z',
+                                updated_at: '2025-10-08T09:00:00Z',
+                            },
+                        },
+                    }),
                 },
             },
         },
-        400: { description: 'Validation error' },
+        422: {
+            description: 'Validation error — missing or invalid body fields',
+            content: {
+                'application/json': {
+                    schema: ValidationErrorEnvelope,
+                },
+            },
+        },
     },
 });
 
+// ── PATCH /companies/{id} ──────────────────────────────────────────────────────
 registry.registerPath({
     method: 'patch',
     path: '/companies/{id}',
     tags: ['Companies'],
-    summary: 'Update a company',
+    summary: 'Partially update a company',
+    description:
+        'Updates one or more fields of an existing company. ' +
+        'Unknown fields in the body are rejected (strict mode). ' +
+        'Sending an empty body returns a 400 error.',
     request: {
-        params: CompanySchema.pick({ id: true }),
+        params: CompanyIdParamSchema,
         body: {
             required: true,
             content: {
@@ -107,25 +211,107 @@ registry.registerPath({
             description: 'Company updated successfully',
             content: {
                 'application/json': {
-                    schema: { $ref: '#/components/schemas/Company' },
+                    schema: SuccessEnvelope(CompanySchema).openapi({
+                        example: {
+                            status: 'success',
+                            code: 200,
+                            error: false,
+                            message: 'Company updated successfully',
+                            data: {
+                                id: 1,
+                                name: 'Updated Corp',
+                                contact_email: 'contact@abc.com',
+                                contact_phone: '+91-9876543210',
+                                address: 'Mumbai, Maharashtra, India',
+                                is_active: true,
+                                created_at: '2025-10-08T09:00:00Z',
+                                updated_at: '2025-10-08T10:00:00Z',
+                            },
+                        },
+                    }),
                 },
             },
         },
-        400: { description: 'Validation error' },
-        404: { description: 'Company not found' },
+        400: {
+            description: 'Empty body — no fields provided to update',
+            content: {
+                'application/json': {
+                    schema: ErrorEnvelope('No fields provided to update', 400),
+                },
+            },
+        },
+        404: {
+            description: 'Company not found',
+            content: {
+                'application/json': {
+                    schema: ErrorEnvelope('Company not found', 404),
+                },
+            },
+        },
+        422: {
+            description: 'Validation error — invalid body fields or invalid `id`',
+            content: {
+                'application/json': {
+                    schema: ValidationErrorEnvelope,
+                },
+            },
+        },
     },
 });
 
+// ── DELETE /companies/{id} ─────────────────────────────────────────────────────
 registry.registerPath({
     method: 'delete',
     path: '/companies/{id}',
     tags: ['Companies'],
-    summary: 'Delete a company',
+    summary: 'Soft-delete a company',
+    description:
+        'Soft-deletes a company by setting `is_active = false`. ' +
+        'The record is retained in the database.',
     request: {
-        params: CompanySchema.pick({ id: true }),
+        params: CompanyIdParamSchema,
     },
     responses: {
-        204: { description: 'Company deleted successfully' },
-        404: { description: 'Company not found' },
+        200: {
+            description: 'Company soft-deleted successfully',
+            content: {
+                'application/json': {
+                    schema: SuccessEnvelope(CompanySchema).openapi({
+                        example: {
+                            status: 'success',
+                            code: 200,
+                            error: false,
+                            message: 'Company deleted successfully',
+                            data: {
+                                id: 1,
+                                name: 'ABC Pvt Ltd',
+                                contact_email: 'contact@abc.com',
+                                contact_phone: '+91-9876543210',
+                                address: 'Mumbai, Maharashtra, India',
+                                is_active: false,
+                                created_at: '2025-10-08T09:00:00Z',
+                                updated_at: '2025-10-08T11:00:00Z',
+                            },
+                        },
+                    }),
+                },
+            },
+        },
+        404: {
+            description: 'Company not found',
+            content: {
+                'application/json': {
+                    schema: ErrorEnvelope('Company not found', 404),
+                },
+            },
+        },
+        422: {
+            description: 'Invalid `id` param (must be a positive integer)',
+            content: {
+                'application/json': {
+                    schema: ValidationErrorEnvelope,
+                },
+            },
+        },
     },
 });

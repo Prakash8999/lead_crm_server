@@ -12,10 +12,30 @@ app.use(express.urlencoded({ extended: true }));
 // ── API Docs (Swagger UI — auto-generated from Zod schemas) ───────────────────
 setupSwagger(app);
 
-// ── Routes ────────────────────────────────────────────────────────────────────
-app.get("/", (_req: Request, res: Response) => {
-    res.json({ message: "Lead CRM Server is running 🚀", status: "ok" });
+
+// ── Health Check ──────────────────────────────────────────────────────────────
+app.get('/', (_req: Request, res: Response) => {
+    res.json({ message: 'Lead CRM Server is running 🚀', status: 'ok', version: 'v1' });
 });
+
+//All Routes
+const apiV1 = '/api/v1';
+import CompanyRoutes from "./modules/companies/companies.routes";
+app.use(`${apiV1}/companies`, CompanyRoutes);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // ── 404 Handler ───────────────────────────────────────────────────────────────
 app.use((_req: Request, res: Response) => {
@@ -28,11 +48,25 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
     res.status(500).json({ error: "Internal server error" });
 });
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // ── Start Server ──────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
     console.log(`✅ Server running at http://localhost:${PORT}`);
 });
 
-console.log("envs ", env)
 
-export default app;

@@ -9,8 +9,9 @@
     "lib": [
       "ES2020"
     ],
-    "types": [
-      "node"
+    "typeRoots": [
+      "./node_modules/@types",
+      "./src/shared/types"
     ],
     // Other Outputs
     "sourceMap": true,
@@ -18,7 +19,7 @@
     "declarationMap": true,
     // Stricter Typechecking Options
     "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
+    "exactOptionalPropertyTypes": false,
     // Style Options
     "noImplicitReturns": true,
     "noImplicitOverride": true,
