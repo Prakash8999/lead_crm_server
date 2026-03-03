@@ -34,7 +34,7 @@ export class CompanyService {
         filters: Omit<CompanyQuery, 'page' | 'limit' | 'sort_by' | 'sort_order'>,
     ): Promise<ServiceResult<Company[]>> {
         try {
-            const { search, is_active, name, contact_email, contact_phone } = filters;
+            const { search, is_active, name, contact_email, contact_phone, id } = filters;
 
             // Build where clause — all values already the correct types (coerced by Zod)
             const where: WhereOptions<CompanyAttributes> = {};
@@ -44,6 +44,7 @@ export class CompanyService {
             if (name) where.name = name;
             if (contact_email) where.contact_email = contact_email;
             if (contact_phone) where.contact_phone = contact_phone;
+            if (id) where.id = id;
 
             // Full-text search — OR LIKE across all searchable text columns
             // Works alongside field filters: e.g. is_active=true AND search='abc'

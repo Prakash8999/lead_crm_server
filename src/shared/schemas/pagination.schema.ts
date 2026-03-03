@@ -8,6 +8,11 @@ import { z } from 'zod';
 
 export const PaginationQuerySchema = z.object({
     // Page number — must be a positive integer string, defaults to '1'
+    id: z
+        .string()
+        .regex(/^[1-9]\d*$/, 'id must be a positive integer')
+        .optional()
+        .transform(Number),
     page: z
         .string()
         .regex(/^[1-9]\d*$/, 'page must be a positive integer')

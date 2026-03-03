@@ -6,10 +6,7 @@ import { errorHandler } from '../utils/response';
 //validateBody as production ready
 export function validateBody(schema: z.ZodType) {
     return (req: Request, res: Response, next: NextFunction): void => {
-        console.log('Validating body:', req.body);
-
         const result = schema.safeParse(req.body);
-        console.log("result in parse", result);
         if (!result.success) {
             const formattedErrors = result.error.issues.map((issue: z.core.$ZodIssue) => ({
                 field: issue.path.join('.'),
@@ -17,7 +14,7 @@ export function validateBody(schema: z.ZodType) {
             }));
             errorHandler(
                 res,
-                'Validation failed',
+                formattedErrors[0]?.message || 'Validation failed',
                 400,
                 formattedErrors
             );
@@ -38,7 +35,7 @@ export function validateParams(schema: z.ZodType) {
             }));
             errorHandler(
                 res,
-                'Validation failed',
+                formattedErrors[0]?.message || 'Validation failed',
                 400,
                 formattedErrors
             );
@@ -62,7 +59,7 @@ export function validateQuery(schema: z.ZodType) {
             }));
             errorHandler(
                 res,
-                'Invalid query parameters',
+                formattedErrors[0]?.message || 'Invalid query parameters',
                 400,
                 formattedErrors
             );

@@ -33,6 +33,15 @@
     "esModuleInterop": true,
     "resolveJsonModule": true
   },
+  // ts-node specific config — forces it to load ALL files in `include`,
+  // not just the ones directly imported. Required for .d.ts augmentations to work.
+  "ts-node": {
+    "files": true,
+    "transpileOnly": false,
+    "compilerOptions": {
+      "isolatedModules": false
+    }
+  },
   "include": [
     "src/**/*"
   ],

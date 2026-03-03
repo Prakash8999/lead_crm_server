@@ -170,6 +170,7 @@ Company.init(
     },
     {
         sequelize,
+        timestamps: false,
         tableName: 'companies'
     }
 );
