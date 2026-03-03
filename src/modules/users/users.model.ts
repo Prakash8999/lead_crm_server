@@ -2,6 +2,7 @@ import { DataTypes, Model, Sequelize } from 'sequelize';
 import { z } from 'zod';
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import sequelize from '../../config/db/db_connection';
+import { PaginationQuerySchema } from '../../shared/schemas/pagination.schema';
 
 extendZodWithOpenApi(z);
 
@@ -34,8 +35,8 @@ export const UserSchema = z
             example: false,
             description: 'Indicates whether this user has admin privileges within their company',
         }),
-        password_hash: z.string().min(1).openapi({
-            example: '$2b$10$EixZaYVK1fsbw1Zfbx3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW',
+        password: z.string().min(1).openapi({
+            example: 'MyPassWord123',
             description: 'Bcrypt hash of the user password',
         }),
         is_active: z.boolean().default(true).openapi({
@@ -67,14 +68,55 @@ export const CreateUserSchema = UserSchema.omit({
     id: true,
     created_at: true,
     updated_at: true,
+    admin: true,
     is_active: true,
-}).openapi({ title: 'CreateUserInput' });
+}).strict().openapi({ title: 'CreateUserInput' });
 
 export const UpdateUserSchema = UserSchema.partial().omit({
     id: true,
     created_at: true,
-    password_hash: true,
-}).openapi({ title: 'UpdateUserInput' });
+    password: true,
+}).strict().openapi({ title: 'UpdateUserInput' });
+
+// Validates :id route param — must be a numeric string representing a positive integer
+export const UserIdParamSchema = z.object({
+    id: z
+        .string()
+        .regex(/^[1-9]\d*$/, 'id must be a positive integer')
+        .transform(Number),
+});
+
+// Validates and whitelists all allowed query params for GET /users.
+// Extends the shared pagination base with user-specific sort columns and filters.
+const userSortableColumns = [
+    'id', 'name', 'email', 'mobile', 'company_id', 'admin', 'is_active', 'created_at', 'updated_at',
+] as const;
+
+export const UserQuerySchema = PaginationQuerySchema.extend({
+    // Lock sort_by to valid user columns only
+    sort_by: z
+        .enum(userSortableColumns)
+        .default('id'),
+
+    // Filterable fields — all optional
+    name: z.string().min(1).max(255).optional(),
+    email: z.email().optional(),
+    mobile: z.string().min(5).max(20).optional(),
+    company_id: z
+        .string()
+        .regex(/^[1-9]\d*$/, 'company_id must be a positive integer')
+        .transform(Number)
+        .optional(),
+    admin: z
+        .enum(['true', 'false'])
+        .transform((v) => v === 'true')
+        .optional(),
+    is_active: z
+        .enum(['true', 'false'])
+        .transform((v) => v === 'true')
+        .optional(),
+    // strip: unknown query params are silently dropped — never reach service/DB
+}).strip();
 
 // --------------------
 // 🧩 Types
@@ -82,6 +124,7 @@ export const UpdateUserSchema = UserSchema.partial().omit({
 export type UserAttributes = z.infer<typeof UserSchema>;
 export type UserCreationAttributes = z.infer<typeof CreateUserSchema>;
 export type UpdateUserAttributes = z.infer<typeof UpdateUserSchema>;
+export type UserQuery = z.infer<typeof UserQuerySchema>;
 
 // --------------------
 // 🧩 Sequelize Model
@@ -95,7 +138,7 @@ export class User
     public mobile!: string;
     public company_id!: number;
     public admin!: boolean;
-    public password_hash!: string;
+    public password!: string;
     public is_active!: boolean;
     public created_at!: Date;
     public updated_at!: Date;
@@ -134,7 +177,7 @@ User.init(
             allowNull: false,
             defaultValue: false,
         },
-        password_hash: {
+        password: {
             type: DataTypes.STRING(512),
             allowNull: false,
         },
@@ -156,6 +199,7 @@ User.init(
     },
     {
         sequelize,
+        timestamps: false,
         tableName: 'users',
     }
 );

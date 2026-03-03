@@ -23,6 +23,9 @@ const apiV1 = '/api/v1';
 import CompanyRoutes from "./modules/companies/companies.routes";
 app.use(`${apiV1}/companies`, CompanyRoutes);
 
+import UserRoutes from "./modules/users/users.routes";
+app.use(`${apiV1}/users`, UserRoutes);
+
 
 
 

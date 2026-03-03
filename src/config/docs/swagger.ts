@@ -6,6 +6,7 @@ import { generateOpenApiDocument } from './openapi.generator';
 // Each file registers its schemas + routes into the global registry.
 // Add a new line here whenever you create a new module docs file.
 import '../../modules/companies/companies.docs';
+import '../../modules/users/users.docs';
 
 /**
  * 🚀 Sets up the Swagger UI at /api-docs
